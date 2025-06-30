@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador de Jogos Históricos</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: url("https://images.unsplash.com/photo-1518091043644-c1d4457512c6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1950&q=80")
+          no-repeat center center fixed;
+        background-size: cover;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        color: white;
+        backdrop-filter: brightness(0.7);
+      }
+
+      .container {
+        background-color: rgba(0, 0, 0, 0.8);
+        padding: 50px;
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+        text-align: center;
+        max-width: 900px;
+        width: 95%;
+      }
+
+      h1 {
+        margin-bottom: 40px;
+        font-size: 36px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #f8d90f;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      }
+
+      .select-sides {
+        display: flex;
+        justify-content: space-between;
+        gap: 50px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+      }
+
+      .side {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 25px;
+        border-radius: 12px;
+        flex: 1;
+        min-width: 240px;
+      }
+
+      .side label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: bold;
+        font-size: 18px;
+      }
+
+      select {
+        width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+        border: none;
+        font-size: 16px;
+        margin-bottom: 20px;
+        background-color: #ffffff;
+        color: #333;
+        font-weight: bold;
+      }
+
+      button {
+        padding: 12px 30px;
+        font-size: 20px;
+        background-color: #f8d90f;
+        color: #000;
+        font-weight: bold;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+
+      button:hover {
+        background-color: #e6c200;
+        transform: scale(1.05);
+      }
+
+      #resultado {
+        margin-top: 30px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #ffffff;
+        text-shadow: 1px 1px 3px black;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>SIMULADOR DE JOGOS HISTÓRICOS</h1>
+
+      <div class="select-sides">
+        <div class="side">
+          <label for="ano1">Ano - Seleção 1:</label>
+          <select id="ano1" onclick="carregarAnos('ano1')" onchange="carregarSelecoes('ano1','selecao1')">
+            <option disabled selected>Selecione o ano</option>
+          </select>
+
+          <select id="selecao1">
+            <option disabled selected>Selecione a seleção</option>
+          </select>
+        </div>
+
+        <div class="side">
+          <label for="ano2">Ano - Seleção 2:</label>
+          <select id="ano2" onclick="carregarAnos('ano2')" onchange="carregarSelecoes('ano2','selecao2')">
+            <option disabled selected>Selecione o ano</option>
+          </select>
+
+          <select id="selecao2">
+            <option disabled selected>Selecione a seleção</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="simularJogo()">Simular</button>
+
+      <div id="resultado"></div>
+    </div>
+
+    <script>
+      let anosCarregados = false;
+
+      async function carregarAnos(selectId) {
+        if (anosCarregados) return;
+
+        try {
+          const response = await fetch(
+            "http://localhost:3000/api/worldcup/years"
+          );
+          const data = await response.json();
+
+          const select1 = document.getElementById("ano1");
+          const select2 = document.getElementById("ano2");
+
+          select1.innerHTML =
+            "<option disabled selected>Selecione o ano</option>";
+          select2.innerHTML =
+            "<option disabled selected>Selecione o ano</option>";
+
+          data.years.forEach((ano) => {
+            const option1 = document.createElement("option");
+            option1.value = ano;
+            option1.textContent = `${ano}`;
+            select1.appendChild(option1);
+
+            const option2 = document.createElement("option");
+            option2.value = ano;
+            option2.textContent = `${ano}`;
+            select2.appendChild(option2);
+          });
+
+          anosCarregados = true;
+        } catch (error) {
+          console.error("Erro ao carregar anos:", error);
+        }
+      }
+
+      function simularJogo() {
+        const ano1 = document.getElementById("ano1").value;
+        const ano2 = document.getElementById("ano2").value;
+        const selecao1 = document.getElementById("selecao1").value;
+        const selecao2 = document.getElementById("selecao2").value;
+
+        if (ano1 === ano2 && selecao1 === selecao2) {
+          document.getElementById("resultado").innerText =
+            "Escolha seleções ou anos diferentes para simular o confronto!";
+          return;
+        }
+
+        const placar1 = Math.floor(Math.random() * 5);
+        const placar2 = Math.floor(Math.random() * 5);
+
+        document.getElementById(
+          "resultado"
+        ).innerText = `${selecao1} ${ano1} ${placar1} x ${placar2} ${selecao2} ${ano2}`;
+      }
+
+      async function carregarSelecoes(selectAnoId, selectSelecaoId) {
+        const anoSelect = document.getElementById(selectAnoId);
+        const selecaoSelect = document.getElementById(selectSelecaoId);
+
+        const ano = anoSelect.value;
+        if (!ano) return;
+
+        selecaoSelect.innerHTML =
+          "<option disabled selected>Carregando seleções...</option>";
+
+        try {
+          const res = await fetch(
+            `http://localhost:3000/api/worldcup/teams/${ano}`
+          );
+          const data = await res.json();
+
+          selecaoSelect.innerHTML =
+            "<option disabled selected>Selecione a seleção</option>";
+          data.teams.forEach((team) => {
+            const option = document.createElement("option");
+            option.value = team;
+            option.textContent = team;
+            selecaoSelect.appendChild(option);
+          });
+        } catch (error) {
+          selecaoSelect.innerHTML =
+            "<option disabled>Erro ao carregar seleções</option>";
+          console.error(error);
+        }
+      }
+    </script>
+  </body>
+</html>
