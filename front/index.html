@@ -32,7 +32,7 @@
 
       h1 {
         margin-bottom: 40px;
-        font-size: 36px;
+        font-size: 32px;
         letter-spacing: 2px;
         text-transform: uppercase;
         color: #f8d90f;
@@ -102,12 +102,16 @@
   </head>
   <body>
     <div class="container">
-      <h1>SIMULADOR DE JOGOS HISTÓRICOS</h1>
+      <h1>SIMULADOR DE JOGOS ENTRE SELEÇÕES HISTÓRICAS</h1>
 
       <div class="select-sides">
         <div class="side">
           <label for="ano1">Ano - Seleção 1:</label>
-          <select id="ano1" onclick="carregarAnos('ano1')" onchange="carregarSelecoes('ano1','selecao1')">
+          <select
+            id="ano1"
+            onclick="carregarAnos('ano1')"
+            onchange="carregarSelecoes('ano1','selecao1')"
+          >
             <option disabled selected>Selecione o ano</option>
           </select>
 
@@ -118,7 +122,11 @@
 
         <div class="side">
           <label for="ano2">Ano - Seleção 2:</label>
-          <select id="ano2" onclick="carregarAnos('ano2')" onchange="carregarSelecoes('ano2','selecao2')">
+          <select
+            id="ano2"
+            onclick="carregarAnos('ano2')"
+            onchange="carregarSelecoes('ano2','selecao2')"
+          >
             <option disabled selected>Selecione o ano</option>
           </select>
 
@@ -133,7 +141,94 @@
       <div id="resultado"></div>
     </div>
 
-    <script>
+    <div
+      id="modalEstatisticas"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.7);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      "
+    >
+      <div
+        style="
+          background: #222;
+          color: #fff;
+          padding: 30px;
+          border-radius: 12px;
+          min-width: 300px;
+          max-width: 90vw;
+          max-height: 90vh;
+          overflow: auto;
+          position: relative;
+        "
+      >
+        <button
+          onclick="fecharModal()"
+          style="
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: #f8d90f;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            padding: 4px 12px;
+            cursor: pointer;
+          "
+        >
+          X
+        </button>
+        <div id="conteudoModal"></div>
+      </div>
+    </div>
+
+    <div
+      id="modalResultado"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 400px;
+        max-width: 90vw;
+        height: 100vh;
+        background: rgba(34, 34, 34, 0.98);
+        color: #fff;
+        z-index: 1100;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+        padding: 40px 30px 30px 30px;
+        overflow-y: auto;
+      "
+    >
+      <button
+        onclick="fecharModalResultado()"
+        style="
+          position: absolute;
+          top: 10px;
+          right: 15px;
+          background: #f8d90f;
+          color: #000;
+          border: none;
+          border-radius: 6px;
+          font-size: 18px;
+          padding: 4px 12px;
+          cursor: pointer;
+        "
+      >
+        X
+      </button>
+      <div id="conteudoResultado"></div>
+    </div>
+
+<script>
       let anosCarregados = false;
 
       async function carregarAnos(selectId) {
@@ -171,7 +266,7 @@
         }
       }
 
-      function simularJogo() {
+      async function simularJogo() {
         const ano1 = document.getElementById("ano1").value;
         const ano2 = document.getElementById("ano2").value;
         const selecao1 = document.getElementById("selecao1").value;
@@ -183,12 +278,63 @@
           return;
         }
 
-        const placar1 = Math.floor(Math.random() * 5);
-        const placar2 = Math.floor(Math.random() * 5);
+        try {
+          const [res1, res2] = await Promise.all([
+            fetch(
+              `http://localhost:3000/api/worldcup/team-stats?team=${encodeURIComponent(
+                selecao1
+              )}&year=${ano1}`
+            ),
+            fetch(
+              `http://localhost:3000/api/worldcup/team-stats?team=${encodeURIComponent(
+                selecao2
+              )}&year=${ano2}`
+            ),
+          ]);
+          const data1 = await res1.json();
+          const data2 = await res2.json();
 
-        document.getElementById(
-          "resultado"
-        ).innerText = `${selecao1} ${ano1} ${placar1} x ${placar2} ${selecao2} ${ano2}`;
+          if (data1.error || data2.error) {
+            document.getElementById("resultado").innerText =
+              "Erro ao buscar estatísticas das seleções!";
+            return;
+          }
+
+          // Monta o HTML das estatísticas
+          let html = `
+      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center;">
+        <div>${renderStats(data1.stats, selecao1, ano1)}</div>
+        <div>${renderStats(data2.stats, selecao2, ano2)}</div>
+      </div>
+    `;
+
+          document.getElementById("conteudoModal").innerHTML = html;
+          document.getElementById("modalEstatisticas").style.display = "flex";
+
+          // Chama o backend para simular o resultado da partida
+          const simRes = await fetch(
+            "http://localhost:3000/api/worldcup/simulate-match",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                homeTeam: { name: selecao1, stats: data1.stats },
+                awayTeam: { name: selecao2, stats: data2.stats },
+              }),
+            }
+          );
+          const resultado = await simRes.json();
+          if (resultado.error) {
+            document.getElementById("conteudoResultado").innerHTML =
+              "<div>Erro ao simular partida!</div>";
+            document.getElementById("modalResultado").style.display = "block";
+          } else {
+            mostrarResultadoSimulado(resultado, selecao1, selecao2, ano1, ano2);
+          }
+        } catch (e) {
+          document.getElementById("resultado").innerText =
+            "Erro ao buscar estatísticas!";
+        }
       }
 
       async function carregarSelecoes(selectAnoId, selectSelecaoId) {
@@ -220,6 +366,92 @@
             "<option disabled>Erro ao carregar seleções</option>";
           console.error(error);
         }
+      }
+
+      function renderStats(stats, selecao, ano) {
+        if (!stats) return "<div>Sem dados</div>";
+
+        if (ano < 2018) {
+          return `
+    <h2>${selecao} (${ano})</h2>
+    <ul style="list-style:none;padding:0;">
+      <li><b>Partidas:</b> ${stats.mp}</li>
+      <li><b>Vitórias:</b> ${stats.w}</li>
+      <li><b>Empates:</b> ${stats.d}</li>
+      <li><b>Derrotas:</b> ${stats.l}</li>
+      <li><b>Gols Pró:</b> ${stats.gf}</li>
+      <li><b>Gols Sofridos:</b> ${stats.ga}</li>
+      <li><b>Saldo de Gols:</b> ${stats.gd}</li>
+      <li><b>Pontos:</b> ${stats.pts}</li>
+    </ul>
+  `;
+        }
+        // Filtra apenas os campos desejados
+        return `
+    <h2>${selecao} (${ano})</h2>
+    <ul style="list-style:none;padding:0;">
+      <li><b>Partidas:</b> ${stats.mp}</li>
+      <li><b>Vitórias:</b> ${stats.w}</li>
+      <li><b>Empates:</b> ${stats.d}</li>
+      <li><b>Derrotas:</b> ${stats.l}</li>
+      <li><b>Gols Pró:</b> ${stats.gf}</li>
+      <li><b>Gols Sofridos:</b> ${stats.ga}</li>
+      <li><b>Saldo de Gols:</b> ${stats.gd}</li>
+      <li><b>Pontos:</b> ${stats.pts}</li>
+      <li><b>xG:</b> ${stats.xg}</li>
+      <li><b>xGA:</b> ${stats.xga}</li>
+      <li><b>xGD:</b> ${stats.xgd}</li>
+      <li><b>xGD/90:</b> ${stats["xgd/90"]}</li>
+    </ul>
+  `;
+      }
+
+      function fecharModal() {
+        document.getElementById("modalEstatisticas").style.display = "none";
+      }
+
+      function mostrarResultadoSimulado(
+        resultado,
+        selecao1,
+        selecao2,
+        ano1,
+        ano2
+      ) {
+        let vencedor = "Empate";
+        if (resultado.result === "home")
+          vencedor = selecao1 + " (" + ano1 + ")";
+        if (resultado.result === "away")
+          vencedor = selecao2 + " (" + ano2 + ")";
+
+        const html = `
+    <h2 style="color:#f8d90f;">Resultado Simulado</h2>
+    <div style="font-size:22px;margin-bottom:16px;">
+      <b>${selecao1} (${ano1})</b> <span style="font-size:28px;">${
+          resultado.homeTeam.goals
+        }</span>
+      x
+      <span style="font-size:28px;">${
+        resultado.awayTeam.goals
+      }</span> <b>${selecao2} (${ano2})</b>
+    </div>
+    <div style="margin-bottom:12px;">
+      <b>Vencedor:</b> <span style="color:#f8d90f;">${vencedor}</span>
+    </div>
+    <div>
+      <b>Probabilidades:</b>
+      <ul style="list-style:none;padding:0;">
+        <li><b>${selecao1} (${ano1}):</b> ${Math.round(
+          resultado.probability.homeWin * 100
+        )}%</li>
+        <li><b>Empate:</b> ${Math.round(resultado.probability.draw * 100)}%</li>
+        <li><b>${selecao2} (${ano2}):</b> ${Math.round(
+          resultado.probability.awayWin * 100
+        )}%</li>
+      </ul>
+    </div>
+  `;
+        document.getElementById("conteudoResultado").innerHTML = html;
+        document.getElementById("modalResultado").style.display = "block";
       }
     </script>
   </body>
